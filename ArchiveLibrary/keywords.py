@@ -2,13 +2,15 @@
 
 from robot.libraries.Collections import Collections
 from robot.libraries.OperatingSystem import OperatingSystem
-from Libraries.Common.ArchiveLibrary.utils import Unzip, Untar, return_files_lists
+from ArchiveLibrary.utils import Unzip, Untar, return_files_lists
 import os
 import tarfile
 import zipfile
 import subprocess
 import shutil
-from Libraries.Common.GenericLib import GenericLib
+# from Libraries.Common.GenericLib import GenericLib
+import subprocess
+from subprocess import Popen, PIPE
 
 class ArchiveKeywords(object):
     ROBOT_LIBRARY_SCOPE = 'Global'
@@ -21,6 +23,37 @@ class ArchiveKeywords(object):
     def __init__(self):
         self.oslib = OperatingSystem()
         self.collections = Collections()
+
+    def _killAllProcess(self, *processList):
+        """ Used to Kill all running process by passing list of processname.
+
+         Arguments: '*processList' contains variable number of processname
+
+         Example:
+
+        | ***Variable*** |
+        | @{AllProcessToKill} | chrome.exe | chromedriver.exe |
+        | ***TestCases*** |
+        | KillAllProcess | @{AllProcessToKill} |
+
+        """
+        tasklist = subprocess.Popen(("tasklist"), stdout=PIPE, stderr=PIPE)
+        stdout, stderr = tasklist.communicate()
+        for process in processList:
+            if process in str(stdout):
+                killCommand = "Taskkill /IM" + " " + process + " /F"
+                try:
+                    subprocess.Popen(killCommand, stdout=PIPE, stderr=PIPE)
+                except:
+                    pass
+        filesintemp = [name for name in os.listdir(os.environ['TEMP'])]
+        for i in filesintemp:
+            if "scoped_dir" in i:
+                dir = os.path.join(os.environ['TEMP'], i)
+                try:
+                    shutil.rmtree(dir)
+                except:
+                    pass
 
     def _extract_zip_file(self, zfile, dest=None):
         ''' Extract a ZIP file
@@ -119,7 +152,7 @@ class ArchiveKeywords(object):
 
         the_zip.close()
 
-    def mx_extract_file(self, compressed_file_path, destination=None):
+    def extract_file(self, compressed_file_path, destination=None):
         """|Usage|
             Extract the contents of the compressed 'file' into a 'dest' path.
 
@@ -131,7 +164,7 @@ class ArchiveKeywords(object):
             *** Variables ***
             ${destination}    D:/extracted_data
             *** Test Cases ***
-            Mx Extract File    C:/Uxp.war    ${destination}
+            Extract File    C:/Uxp.war    ${destination}
             """
         if not os.path.exists(compressed_file_path):
             raise AssertionError("File not found error : " + compressed_file_path + " doesnot exist")
@@ -143,7 +176,7 @@ class ArchiveKeywords(object):
             self._extract_tar_file(compressed_file_path, destination)
         elif ext.lower() in ['war', 'jar', 'ear']:
             processList = ['7zFM.exe', 'jar.exe']
-            GenericLib().mx_killAllProcess(*processList)
+            self._killAllProcess(*processList)
             if os.path.exists(destination):
                 shutil.rmtree(destination)
             os.mkdir(destination)
@@ -157,7 +190,7 @@ class ArchiveKeywords(object):
         else:
             raise AssertionError("Invalid format : " + tail)
 
-    def mx_create_compressed_file_from_files_in_directory(self, directory, compressed_file_path, sub_directories=False):
+    def create_compressed_file_from_files_in_directory(self, directory, compressed_file_path, sub_directories=False):
         """|Usage|
             Take all files specified in the 'directory' and create a compressed package from them and store it in the specified 'compressed_file_path'.
 
@@ -170,7 +203,7 @@ class ArchiveKeywords(object):
             *** Variables ***
             ${directory}    D:/extractedjardata
             *** Test Cases ***
-            Mx Create Compressed File From Files In Directory    ${directory}   C:/BOHistoryDetails.jar
+            Create Compressed File From Files In Directory    ${directory}   C:/BOHistoryDetails.jar
         """
         head, tail = os.path.split(compressed_file_path)
         if not os.path.exists(head):
@@ -178,7 +211,7 @@ class ArchiveKeywords(object):
         if not os.path.exists(directory):
             raise AssertionError("Directory not found error : " + directory + " doesnot exist")
         processList = ['7zFM.exe', 'jar.exe']
-        GenericLib().mx_killAllProcess(*processList)
+        self._killAllProcess(*processList)
         if os.path.exists(compressed_file_path):
             os.remove(compressed_file_path)
         ext = tail.split(".")[1]
@@ -196,6 +229,7 @@ class ArchiveKeywords(object):
             return result
         else:
             raise AssertionError("Invalid format : " + tail)
+
 
 if __name__ == '__main__':
     al = ArchiveKeywords()
